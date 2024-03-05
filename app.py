@@ -6,10 +6,6 @@ import requests
 import json
 import base64
 from datetime import datetime
-import pprint
-
-# Print environment variables for debugging purposes
-pprint.pprint(dict(os.environ))
 
 def encode_image(image_path):
     """
@@ -22,126 +18,12 @@ def encode_image(image_path):
         str: The base64-encoded image.
     """
     with open(image_path, "rb") as image_file:
-        return base64.b64encode(image_file.read()).decode('utf-8')
+        encoded_image = base64.b64encode(image_file.read()).decode('utf-8')
+    return encoded_image
 
-def analyze_screenshot(image_path):
+def analyze_screenshot_and_engage_user():
     """
-    Analyze a screenshot using the OpenAI API.
-
-    Args:
-        image_path (str): The path to the screenshot image file.
-
-    Returns:
-        str: The description of the screenshot.
-    """
-    base64_image = encode_image(image_path)
-    api_key = os.environ.get('OPENAI_API_KEY')
-    if not api_key:
-        raise ValueError("OPENAI_API_KEY environment variable not set")
-
-    headers = {
-        "Content-Type": "application/json",
-        "Authorization": f"Bearer {api_key}"
-    }
-
-    payload = {
-        "model": "gpt-4-vision-preview",
-        "messages": [
-            {
-                "role": "user",
-                "content": [
-                    {"type": "text", "text": "What's in this image?"},
-                    {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{base64_image}"}}
-                ]
-            }
-        ],
-        "max_tokens": 100
-    }
-
-    response = requests.post("https://api.openai.com/v1/chat/completions", headers=headers, json=payload)
-    if response.status_code == 200:
-        response_data = response.json()
-        if "choices" in response_data and response_data["choices"]:
-            message = response_data["choices"][0].get("message", {}).get("content", "No description available.")
-            print(message)
-            return message
-        else:
-            print("No description available.")
-            return "No description available."
-    else:
-        print(f"Error ({response.status_code}): {response.text}")
-        return f"Error ({response.status_code}): {response.text}"
-
-def ask_for_help(image_description):
-    """
-    Ask the user if they need help based on the screenshot description.
-
-    Args:
-        image_description (str): The description of the screenshot.
-
-    Returns:
-        None
-    """
-    user_input = input(f"Based on the screenshot ({image_description}), do you need help? (yes/no) ").lower()
-    if user_input == "yes":
-        user_input = input("Please enter your question: ")
-        handle_user_question(user_input, image_description)
-    elif user_input == "no":
-        print("OK. Let me know if you need help later.")
-    else:
-        print("Invalid input. Please enter 'yes' or 'no'.")
-        ask_for_help(image_description)
-
-def handle_user_question(question, image_description):
-    """
-    Handle the user's question using the OpenAI API.
-
-    Args:
-        question (str): The user's question.
-        image_description (str): The description of the screenshot.
-
-    Returns:
-        None
-    """
-    api_key = os.environ.get('OPENAI_API_KEY')
-    if not api_key:
-        raise ValueError("OPENAI_API_KEY environment variable not set")
-
-    headers = {
-        "Content-Type": "application/json",
-        "Authorization": f"Bearer {api_key}"
-    }
-
-    while question.lower() != "close":
-        prompt = f"Based on the following description: '{image_description}', answer the user's question: '{question}'"
-
-        payload = {
-            "model": "gpt-4-vision-preview",
-            "messages": [
-                {
-                    "role": "user",
-                    "content": prompt
-                }
-            ],
-            "max_tokens": 300
-        }
-
-        response = requests.post("https://api.openai.com/v1/chat/completions", headers=headers, json=payload)
-        if response.status_code == 200:
-            response_data = response.json()
-            if "choices" in response_data and response_data["choices"]:
-                message = response_data["choices"][0].get("message", {}).get("content", "No response available.")
-                print(message)
-            else:
-                print("No response available.")
-        else:
-            print(f"Error ({response.status_code}): {response.text}")
-
-        question = input("If you have another question, type it here. Type 'close' to exit: ")
-
-def take_screenshot_and_analyze():
-    """
-    Take a screenshot and analyze it using the OpenAI API.
+    Take a screenshot, analyze it using the OpenAI API, and engage in a conversation with the user about the screenshot.
 
     Returns:
         None
@@ -150,8 +32,9 @@ def take_screenshot_and_analyze():
     save_directory = "screenshots"
     os.makedirs(save_directory, exist_ok=True)
 
-    # Waiting for the trigger event
-    print("Waiting for trigger event: cmd + §...")
+    # Prompt the user for the trigger event
+    print("Press 'cmd + §' to take a screenshot and analyze it.")
+    print("Waiting for trigger event...")
 
     def on_press(key):
         try:
@@ -175,11 +58,13 @@ def take_screenshot_and_analyze():
 
                 # Save the screenshot
                 screenshot.save(filepath)
-                print(f"Screenshot saved at {filepath}")
+                print(f"Screenshot taken and saved at {filepath}")
 
-                # Analyze the screenshot
-                image_description = analyze_screenshot(filepath)
-                ask_for_help(image_description)
+                # Encode the image
+                base64_image = encode_image(filepath)
+
+                # Analyze the screenshot and engage with the user
+                analyze_and_engage(base64_image)
 
                 # Add a small delay to prevent multiple screenshots
                 time.sleep(0.5)
@@ -195,5 +80,65 @@ def take_screenshot_and_analyze():
     with keyboard.Listener(on_press=on_press, on_release=on_release) as listener:
         listener.join()
 
+def analyze_and_engage(base64_image):
+    """
+    Analyze the screenshot using the OpenAI API and engage in a conversation with the user.
+
+    Args:
+        base64_image (str): The base64-encoded image.
+
+    Returns:
+        None
+    """
+    api_key = os.environ.get('OPENAI_API_KEY')
+    if not api_key:
+        raise ValueError("OPENAI_API_KEY environment variable not set")
+
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {api_key}"
+    }
+
+    continue_conversation = True
+
+    max_messages = 5  # Adjust this value as needed
+
+    messages = [
+        {"role": "system", "content": "You are an AI assistant analyzing screenshots and engaging in conversations with users about the screenshots."},
+        {"role": "user", "content": f"data:image/png;base64,{base64_image}"}
+    ]
+
+    while continue_conversation:
+        payload = {
+            "model": "gpt-4-vision-preview",
+            "messages": messages,
+            "max_tokens": 1000
+        }
+
+        response = requests.post("https://api.openai.com/v1/chat/completions", headers=headers, json=payload)
+
+        if response.status_code == 200:
+            response_data = response.json()
+            if "choices" in response_data and response_data["choices"]:
+                message_content = response_data["choices"][0].get("message", {}).get("content", "No description available.")
+                print(message_content)
+
+                user_input = input("Do you have any follow-up questions? (yes/no) ").lower()
+                if user_input == 'yes':
+                    user_question = input("Please enter your question: ")
+                    messages.append({"role": "user", "content": user_question})
+                    messages = messages[-max_messages:]  # Keep only the last few messages
+                elif user_input == 'no':
+                    print("Okay, let me know if you need help later.")
+                    continue_conversation = False
+                else:
+                    print("Invalid input. Please try again.")
+            else:
+                print("No description available.")
+                continue_conversation = False
+        else:
+            print(f"Error ({response.status_code}): {response.text}")
+            continue_conversation = False
+
 if __name__ == "__main__":
-    take_screenshot_and_analyze()
+    analyze_screenshot_and_engage_user()
