@@ -63,9 +63,36 @@ def ask_for_help(image_description):
         ask_for_help(image_description)
 
 def handle_user_question(question):
-    # TODO: Implement advanced logic to handle user's question
-    print(f"You asked: {question}")
-    print("I'm sorry, I currently don't have the capability to provide a more advanced response to your question.")
+    api_key = os.environ.get('OPENAI_API_KEY')
+    if not api_key:
+        raise ValueError("OPENAI_API_KEY environment variable not set")
+
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {api_key}"
+    }
+
+    payload = {
+        "model": "gpt-4-vision-preview",
+        "messages": [
+            {
+                "role": "user",
+                "content": question
+            }
+        ],
+        "max_tokens": 100
+    }
+
+    response = requests.post("https://api.openai.com/v1/chat/completions", headers=headers, json=payload)
+    if response.status_code == 200:
+        response_data = response.json()
+        if "choices" in response_data and response_data["choices"]:
+            message = response_data["choices"][0].get("message", {}).get("content", "No response available.")
+            print(message)
+        else:
+            print("No response available.")
+    else:
+        print(f"Error ({response.status_code}): {response.text}")
 
 def take_screenshot_and_analyze():
     # Define the directory where you want to save the screenshot
