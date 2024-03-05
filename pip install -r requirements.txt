@@ -1,0 +1,5 @@
+
+## Usage
+
+1. Set your OpenAI API key as an environment variable:
+
