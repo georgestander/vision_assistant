@@ -55,14 +55,14 @@ def ask_for_help(image_description):
     user_input = input(f"Based on the screenshot ({image_description}), do you need help? (yes/no) ").lower()
     if user_input == "yes":
         user_input = input("Please enter your question: ")
-        handle_user_question(user_input)
+        handle_user_question(user_input, image_description)
     elif user_input == "no":
         print("OK. Let me know if you need help later.")
     else:
         print("Invalid input. Please enter 'yes' or 'no'.")
         ask_for_help(image_description)
 
-def handle_user_question(question):
+def handle_user_question(question, image_description):
     api_key = os.environ.get('OPENAI_API_KEY')
     if not api_key:
         raise ValueError("OPENAI_API_KEY environment variable not set")
@@ -72,12 +72,14 @@ def handle_user_question(question):
         "Authorization": f"Bearer {api_key}"
     }
 
+    prompt = f"Based on the following description: '{image_description}', answer the user's question: '{question}'"
+
     payload = {
         "model": "gpt-4-vision-preview",
         "messages": [
             {
                 "role": "user",
-                "content": question
+                "content": prompt
             }
         ],
         "max_tokens": 100
