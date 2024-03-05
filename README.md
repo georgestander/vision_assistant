@@ -17,16 +17,19 @@ Vision Assistant is a Python script that allows users to take screenshots, analy
 ## Installation
 
 1. Clone the repository:
+
    ```
    git clone https://github.com/yourusername/vision-assistant.git
    ```
 
 2. Navigate to the project directory:
+
    ```
    cd vision-assistant
    ```
 
 3. Install the required dependencies:
+
    ```
    pip install -r requirements.txt
    ```
@@ -39,9 +42,10 @@ Vision Assistant is a Python script that allows users to take screenshots, analy
 
 ## Usage
 
-1. Run the `response.py` script:
+1. Run the `app.py` script:
+
    ```
-   python response.py
+   python app.py
    ```
 
 2. The script will start and wait for the trigger event (Cmd + §).
@@ -62,7 +66,7 @@ Vision Assistant is a Python script that allows users to take screenshots, analy
 
 ## Customization
 
-- You can modify the keyboard shortcut for taking screenshots by changing the key combination in the `on_release` function of the `take_screenshot_and_analyze` function in `response.py`.
+- You can modify the keyboard shortcut for taking screenshots by changing the key combination in the `on_release` function of the `take_screenshot_and_analyze` function in `app.py`.
 
 - The directory where screenshots are saved can be changed by modifying the `save_directory` variable in the `take_screenshot_and_analyze` function.
 
@@ -75,5 +79,3 @@ Vision Assistant is a Python script that allows users to take screenshots, analy
 - If the script fails to take screenshots, make sure you have the necessary permissions and that the `screenshots` directory exists or can be created.
 
 - If you face any dependency-related issues, ensure that you have installed all the required packages listed in the `requirements.txt` file.
-
-For any further assistance or questions, please refer to the project's GitHub repository or contact the maintainer.
