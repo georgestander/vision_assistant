@@ -1,6 +1,6 @@
 # Vision Assistant
 
-Vision Assistant is a Python script that allows users to take screenshots, analyze them using the OpenAI API, and ask for help based on the screenshot's content.
+Vision Assistant is a Python script that allows users to take screenshots, analyze them using GPT4 Vision Model, and ask for help based on the screenshot's content.
 
 ## Features
 
