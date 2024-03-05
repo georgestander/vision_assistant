@@ -55,13 +55,17 @@ def ask_for_help(image_description):
     user_input = input(f"Based on the screenshot ({image_description}), do you need help? (yes/no) ").lower()
     if user_input == "yes":
         user_input = input("Please enter your question: ")
-        # TODO: Implement a function to handle user's question and provide help
-        # handle_user_question(user_input)
+        handle_user_question(user_input)
     elif user_input == "no":
         print("OK. Let me know if you need help later.")
     else:
         print("Invalid input. Please enter 'yes' or 'no'.")
         ask_for_help(image_description)
+
+def handle_user_question(question):
+    # TODO: Implement advanced logic to handle user's question
+    print(f"You asked: {question}")
+    print("I'm sorry, I currently don't have the capability to provide a more advanced response to your question.")
 
 def take_screenshot_and_analyze():
     # Define the directory where you want to save the screenshot
