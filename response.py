@@ -36,7 +36,7 @@ def analyze_screenshot(image_path):
                 ]
             }
         ],
-        "max_tokens": 300
+        "max_tokens": 100
     }
 
     response = requests.post("https://api.openai.com/v1/chat/completions", headers=headers, json=payload)
@@ -45,10 +45,23 @@ def analyze_screenshot(image_path):
         if "choices" in response_data and response_data["choices"]:
             message = response_data["choices"][0].get("message", {}).get("content", "No description available.")
             print(message)
+            ask_for_help(message)
         else:
             print("No description available.")
     else:
         print(f"Error ({response.status_code}): {response.text}")
+
+def ask_for_help(image_description):
+    user_input = input(f"Based on the screenshot ({image_description}), do you need help? (yes/no) ").lower()
+    if user_input == "yes":
+        user_input = input("Please enter your question: ")
+        # TODO: Implement a function to handle user's question and provide help
+        # handle_user_question(user_input)
+    elif user_input == "no":
+        print("OK. Let me know if you need help later.")
+    else:
+        print("Invalid input. Please enter 'yes' or 'no'.")
+        ask_for_help(image_description)
 
 def take_screenshot_and_analyze():
     # Define the directory where you want to save the screenshot
