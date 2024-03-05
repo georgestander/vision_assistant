@@ -63,8 +63,23 @@ def analyze_screenshot_and_engage_user():
                 # Encode the image
                 base64_image = encode_image(filepath)
 
-                # Analyze the screenshot and engage with the user
-                analyze_and_engage(base64_image)
+                # Analyze the screenshot with GPT-4-vision-preview
+                initial_analysis = analyze_screenshot_with_gpt4(base64_image)
+
+                print(initial_analysis)
+
+                continue_conversation = True
+                while continue_conversation:
+                    user_input = input("Do you have any follow-up questions? (yes/no) ").lower()
+                    if user_input == 'yes':
+                        user_question = input("Please enter your question: ")
+                        response = handle_user_question_with_gpt3(user_question, initial_analysis, base64_image)
+                        print(response)
+                    elif user_input == 'no':
+                        print("Okay, let me know if you need help later.")
+                        continue_conversation = False
+                    else:
+                        print("Invalid input. Please try again.")
 
                 # Add a small delay to prevent multiple screenshots
                 time.sleep(0.5)
@@ -80,15 +95,15 @@ def analyze_screenshot_and_engage_user():
     with keyboard.Listener(on_press=on_press, on_release=on_release) as listener:
         listener.join()
 
-def analyze_and_engage(base64_image):
+def analyze_screenshot_with_gpt4(base64_image):
     """
-    Analyze the screenshot using the OpenAI API and engage in a conversation with the user.
+    Analyze the screenshot using the OpenAI GPT-4-vision-preview model.
 
     Args:
         base64_image (str): The base64-encoded image.
 
     Returns:
-        None
+        str: The analysis output.
     """
     api_key = os.environ.get('OPENAI_API_KEY')
     if not api_key:
@@ -99,46 +114,99 @@ def analyze_and_engage(base64_image):
         "Authorization": f"Bearer {api_key}"
     }
 
-    continue_conversation = True
+    payload = {
+        "model": "gpt-4-vision-preview",
+        "messages": [
+            {
+                "role": "user",
+                "content": f"data:image/png;base64,{base64_image}"
+            }
+        ],
+        "max_tokens": 300
+    }
 
-    max_messages = 5  # Adjust this value as needed
+    response = requests.post("https://api.openai.com/v1/chat/completions", headers=headers, json=payload)
+    if response.status_code == 200:
+        response_data = response.json()
+        if "choices" in response_data and response_data["choices"]:
+            analysis_output = response_data["choices"][0].get("message", {}).get("content", "No description available.")
+            return analysis_output
+        else:
+            return "No description available."
+    else:
+        print(f"Error ({response.status_code}): {response.text}")
+        return f"Error ({response.status_code}): {response.text}"
 
-    messages = [
-        {"role": "system", "content": "You are an AI assistant analyzing screenshots and engaging in conversations with users about the screenshots."},
-        {"role": "user", "content": f"data:image/png;base64,{base64_image}"}
-    ]
+def handle_user_question_with_gpt3(question, initial_analysis, base64_image):
+    """
+    Handle the user's question using the OpenAI GPT-3.5-turbo model.
 
-    while continue_conversation:
+    Args:
+        question (str): The user's question.
+        initial_analysis (str): The initial analysis output from GPT-4.
+        base64_image (str): The base64-encoded image.
+
+    Returns:
+        str: The response to the user's question.
+    """
+    if can_answer_question(question, initial_analysis):
+        # The initial analysis can answer the question
+        api_key = os.environ.get('OPENAI_API_KEY')
+        if not api_key:
+            raise ValueError("OPENAI_API_KEY environment variable not set")
+
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {api_key}"
+        }
+
+        prompt = f"Based on the following analysis: '{initial_analysis}', answer the user's question: '{question}'"
+
         payload = {
-            "model": "gpt-4-vision-preview",
-            "messages": messages,
-            "max_tokens": 1000
+            "model": "gpt-3.5-turbo",
+            "messages": [
+                {
+                    "role": "user",
+                    "content": prompt
+                }
+            ],
+            "max_tokens": 300
         }
 
         response = requests.post("https://api.openai.com/v1/chat/completions", headers=headers, json=payload)
-
         if response.status_code == 200:
             response_data = response.json()
             if "choices" in response_data and response_data["choices"]:
-                message_content = response_data["choices"][0].get("message", {}).get("content", "No description available.")
-                print(message_content)
-
-                user_input = input("Do you have any follow-up questions? (yes/no) ").lower()
-                if user_input == 'yes':
-                    user_question = input("Please enter your question: ")
-                    messages.append({"role": "user", "content": user_question})
-                    messages = messages[-max_messages:]  # Keep only the last few messages
-                elif user_input == 'no':
-                    print("Okay, let me know if you need help later.")
-                    continue_conversation = False
-                else:
-                    print("Invalid input. Please try again.")
+                response_output = response_data["choices"][0].get("message", {}).get("content", "No response available.")
+                return response_output
             else:
-                print("No description available.")
-                continue_conversation = False
+                return "No response available."
         else:
             print(f"Error ({response.status_code}): {response.text}")
-            continue_conversation = False
+            return f"Error ({response.status_code}): {response.text}"
+    else:
+        # The initial analysis cannot answer the question, call analyze_screenshot_with_gpt4 again
+        new_analysis = analyze_screenshot_with_gpt4(base64_image, prompt=question)
+        return handle_user_question_with_gpt3(question, new_analysis, base64_image)
+
+def can_answer_question(question, analysis):
+    """
+    Check if the analysis output can answer the user's question.
+
+    Args:
+        question (str): The user's question.
+        analysis (str): The analysis output.
+
+    Returns:
+        bool: True if the analysis can answer the question, False otherwise.
+    """
+    # Implement logic to check if the analysis output can answer the question
+    # For example, check if certain keywords are present in the analysis
+    keywords = question.lower().split()
+    for keyword in keywords:
+        if keyword in analysis.lower():
+            return True
+    return False
 
 if __name__ == "__main__":
     analyze_screenshot_and_engage_user()
