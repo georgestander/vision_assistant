@@ -8,13 +8,32 @@ import base64
 from datetime import datetime
 import pprint
 
+# Print environment variables for debugging purposes
 pprint.pprint(dict(os.environ))
 
 def encode_image(image_path):
+    """
+    Encode an image file as a base64 string.
+
+    Args:
+        image_path (str): The path to the image file.
+
+    Returns:
+        str: The base64-encoded image.
+    """
     with open(image_path, "rb") as image_file:
         return base64.b64encode(image_file.read()).decode('utf-8')
 
 def analyze_screenshot(image_path):
+    """
+    Analyze a screenshot using the OpenAI API.
+
+    Args:
+        image_path (str): The path to the screenshot image file.
+
+    Returns:
+        None
+    """
     base64_image = encode_image(image_path)
     api_key = os.environ.get('OPENAI_API_KEY')
     if not api_key:
@@ -52,6 +71,15 @@ def analyze_screenshot(image_path):
         print(f"Error ({response.status_code}): {response.text}")
 
 def ask_for_help(image_description):
+    """
+    Ask the user if they need help based on the screenshot description.
+
+    Args:
+        image_description (str): The description of the screenshot.
+
+    Returns:
+        None
+    """
     user_input = input(f"Based on the screenshot ({image_description}), do you need help? (yes/no) ").lower()
     if user_input == "yes":
         user_input = input("Please enter your question: ")
@@ -63,6 +91,16 @@ def ask_for_help(image_description):
         ask_for_help(image_description)
 
 def handle_user_question(question, image_description):
+    """
+    Handle the user's question using the OpenAI API.
+
+    Args:
+        question (str): The user's question.
+        image_description (str): The description of the screenshot.
+
+    Returns:
+        None
+    """
     api_key = os.environ.get('OPENAI_API_KEY')
     if not api_key:
         raise ValueError("OPENAI_API_KEY environment variable not set")
@@ -97,6 +135,12 @@ def handle_user_question(question, image_description):
         print(f"Error ({response.status_code}): {response.text}")
 
 def take_screenshot_and_analyze():
+    """
+    Take a screenshot and analyze it using the OpenAI API.
+
+    Returns:
+        None
+    """
     # Define the directory where you want to save the screenshot
     save_directory = "screenshots" #create your own.
     os.makedirs(save_directory, exist_ok=True)
@@ -154,4 +198,5 @@ def take_screenshot_and_analyze():
     with keyboard.Listener(on_press=on_press, on_release=on_release) as listener:
         listener.join()
 
-take_screenshot_and_analyze()
+if __name__ == "__main__":
+    take_screenshot_and_analyze()
