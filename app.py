@@ -52,7 +52,7 @@ def analyze_screenshot(image_path):
 
 def take_screenshot_and_analyze():
     # Define the directory where you want to save the screenshot
-    save_directory = "screenshots"
+    save_directory = "screenshots" #create your own.
     os.makedirs(save_directory, exist_ok=True)
 
     # Waiting for the trigger event
