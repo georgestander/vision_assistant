@@ -1,4 +1,3 @@
 .env
-.screenshots
+.screenshots/
 .DS_Store
-.aider*
