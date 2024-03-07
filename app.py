@@ -6,6 +6,12 @@ import requests
 import json
 import base64
 from datetime import datetime
+from pydantic import BaseModel, Field
+
+class AnalysisOutput(BaseModel):
+    description: str = Field(..., description="Description of the screenshot")
+    objects: list[str] = Field([], description="List of objects detected in the screenshot")
+    keywords: list[str] = Field([], description="List of keywords related to the screenshot")
 
 def encode_image(image_path):
     """
@@ -18,12 +24,138 @@ def encode_image(image_path):
         str: The base64-encoded image.
     """
     with open(image_path, "rb") as image_file:
-        encoded_image = base64.b64encode(image_file.read()).decode('utf-8')
-    return encoded_image
+        return base64.b64encode(image_file.read()).decode('utf-8')
 
-def analyze_screenshot_and_engage_user():
+def analyze_screenshot(image_path):
     """
-    Take a screenshot, analyze it using the OpenAI API, and engage in a conversation with the user about the screenshot.
+    Analyze a screenshot using the OpenAI GPT-4-vision-preview model.
+
+    Args:
+        image_path (str): The path to the screenshot image file.
+
+    Returns:
+        AnalysisOutput: The analysis output.
+    """
+    base64_image = encode_image(image_path)
+    api_key = os.environ.get('OPENAI_API_KEY')
+    if not api_key:
+        raise ValueError("OPENAI_API_KEY environment variable not set")
+
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {api_key}"
+    }
+
+    payload = {
+        "model": "gpt-4-vision-preview",
+        "messages": [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": "What's in this image? Please provide a detailed description, list of objects, and keywords."},
+                    {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{base64_image}"}}
+                ]
+            }
+        ],
+        "max_tokens": 300
+    }
+
+    response = requests.post("https://api.openai.com/v1/chat/completions", headers=headers, json=payload)
+    if response.status_code == 200:
+        response_data = response.json()
+        if "choices" in response_data and response_data["choices"]:
+            message = response_data["choices"][0].get("message", {}).get("content", "No description available.")
+            description, objects, keywords = parse_analysis_output(message)
+            return AnalysisOutput(description=description, objects=objects, keywords=keywords)
+        else:
+            return AnalysisOutput(description="No description available.")
+    else:
+        return AnalysisOutput(description=f"Error ({response.status_code}): {response.text}")
+
+def parse_analysis_output(analysis_output):
+    """
+    Parse the analysis output to extract description, objects, and keywords.
+
+    Args:
+        analysis_output (str): The analysis output from the GPT-4-vision-preview model.
+
+    Returns:
+        tuple: A tuple containing the description, list of objects, and list of keywords.
+    """
+    # Implement your logic to parse the analysis output and extract the required information
+    # This could involve using regular expressions, natural language processing techniques, or other methods
+    # For simplicity, we'll use a dummy implementation here
+    return "Description from GPT-4-vision-preview", ["object1", "object2"], ["keyword1", "keyword2"]
+
+def ask_for_help(analysis_output):
+    """
+    Ask the user if they need help based on the screenshot analysis.
+
+    Args:
+        analysis_output (AnalysisOutput): The analysis output.
+
+    Returns:
+        None
+    """
+    user_input = input(f"Based on the screenshot ({analysis_output.description}), do you need help? (yes/no) ").lower()
+    if user_input == "yes":
+        user_input = input("Please enter your question: ")
+        handle_user_question(user_input, analysis_output)
+    elif user_input == "no":
+        print("OK. Let me know if you need help later.")
+    else:
+        print("Invalid input. Please enter 'yes' or 'no'.")
+        ask_for_help(analysis_output)
+
+def handle_user_question(question, analysis_output):
+    """
+    Handle the user's question using a cheaper LLM and the analysis output.
+
+    Args:
+        question (str): The user's question.
+        analysis_output (AnalysisOutput): The analysis output.
+
+    Returns:
+        None
+    """
+    response = answer_question_from_analysis(question, analysis_output)
+    print(response)
+
+def answer_question_from_analysis(question, analysis_output):
+    """
+    Generate an answer to the user's question using a cheaper LLM and the analysis output.
+
+    Args:
+        question (str): The user's question.
+        analysis_output (AnalysisOutput): The analysis output.
+
+    Returns:
+        str: The generated answer.
+    """
+    prompt = f"Question: {question}\nDescription: {analysis_output.description}\nObjects: {', '.join(analysis_output.objects)}\nKeywords: {', '.join(analysis_output.keywords)}"
+
+    # Use a cheaper LLM or a specialized model to generate the answer
+    response = generate_answer(prompt)
+
+    return response
+
+def generate_answer(prompt):
+    """
+    Generate an answer using a cheaper LLM or a specialized model.
+
+    Args:
+        prompt (str): The prompt for the LLM.
+
+    Returns:
+        str: The generated answer.
+    """
+    # Implement your logic to use a cheaper LLM or a specialized model to generate the answer
+    # For simplicity, we'll use a dummy implementation here
+    return f"This is a placeholder response generated by a cheaper LLM or a specialized model for the prompt: {prompt}"
+
+def take_screenshot_and_analyze():
+    """
+    Take a screenshot and analyze it using the OpenAI API.
 
     Returns:
         None
@@ -32,9 +164,8 @@ def analyze_screenshot_and_engage_user():
     save_directory = "screenshots"
     os.makedirs(save_directory, exist_ok=True)
 
-    # Prompt the user for the trigger event
-    print("Press 'cmd + §' to take a screenshot and analyze it.")
-    print("Waiting for trigger event...")
+    # Waiting for the trigger event
+    print("Waiting for trigger event: cmd + §...")
 
     def on_press(key):
         try:
@@ -58,28 +189,11 @@ def analyze_screenshot_and_engage_user():
 
                 # Save the screenshot
                 screenshot.save(filepath)
-                print(f"Screenshot taken and saved at {filepath}")
+                print(f"Screenshot saved at {filepath}")
 
-                # Encode the image
-                base64_image = encode_image(filepath)
-
-                # Analyze the screenshot with GPT-4-vision-preview
-                initial_analysis = analyze_screenshot_with_gpt4(base64_image)
-
-                print(initial_analysis)
-
-                continue_conversation = True
-                while continue_conversation:
-                    user_input = input("Do you have any follow-up questions? (yes/no) ").lower()
-                    if user_input == 'yes':
-                        user_question = input("Please enter your question: ")
-                        response = handle_user_question_with_gpt3(user_question, initial_analysis, base64_image)
-                        print(response)
-                    elif user_input == 'no':
-                        print("Okay, let me know if you need help later.")
-                        continue_conversation = False
-                    else:
-                        print("Invalid input. Please try again.")
+                # Analyze the screenshot
+                analysis_output = analyze_screenshot(filepath)
+                ask_for_help(analysis_output)
 
                 # Add a small delay to prevent multiple screenshots
                 time.sleep(0.5)
@@ -95,118 +209,5 @@ def analyze_screenshot_and_engage_user():
     with keyboard.Listener(on_press=on_press, on_release=on_release) as listener:
         listener.join()
 
-def analyze_screenshot_with_gpt4(base64_image):
-    """
-    Analyze the screenshot using the OpenAI GPT-4-vision-preview model.
-
-    Args:
-        base64_image (str): The base64-encoded image.
-
-    Returns:
-        str: The analysis output.
-    """
-    api_key = os.environ.get('OPENAI_API_KEY')
-    if not api_key:
-        raise ValueError("OPENAI_API_KEY environment variable not set")
-
-    headers = {
-        "Content-Type": "application/json",
-        "Authorization": f"Bearer {api_key}"
-    }
-
-    payload = {
-        "model": "gpt-4-vision-preview",
-        "messages": [
-            {
-                "role": "user",
-                "content": f"data:image/png;base64,{base64_image}"
-            }
-        ],
-        "max_tokens": 300
-    }
-
-    response = requests.post("https://api.openai.com/v1/chat/completions", headers=headers, json=payload)
-    if response.status_code == 200:
-        response_data = response.json()
-        if "choices" in response_data and response_data["choices"]:
-            analysis_output = response_data["choices"][0].get("message", {}).get("content", "No description available.")
-            return analysis_output
-        else:
-            return "No description available."
-    else:
-        print(f"Error ({response.status_code}): {response.text}")
-        return f"Error ({response.status_code}): {response.text}"
-
-def handle_user_question_with_gpt3(question, initial_analysis, base64_image):
-    """
-    Handle the user's question using the OpenAI GPT-3.5-turbo model.
-
-    Args:
-        question (str): The user's question.
-        initial_analysis (str): The initial analysis output from GPT-4.
-        base64_image (str): The base64-encoded image.
-
-    Returns:
-        str: The response to the user's question.
-    """
-    if can_answer_question(question, initial_analysis):
-        # The initial analysis can answer the question
-        api_key = os.environ.get('OPENAI_API_KEY')
-        if not api_key:
-            raise ValueError("OPENAI_API_KEY environment variable not set")
-
-        headers = {
-            "Content-Type": "application/json",
-            "Authorization": f"Bearer {api_key}"
-        }
-
-        prompt = f"Based on the following analysis: '{initial_analysis}', answer the user's question: '{question}'"
-
-        payload = {
-            "model": "gpt-3.5-turbo",
-            "messages": [
-                {
-                    "role": "user",
-                    "content": prompt
-                }
-            ],
-            "max_tokens": 300
-        }
-
-        response = requests.post("https://api.openai.com/v1/chat/completions", headers=headers, json=payload)
-        if response.status_code == 200:
-            response_data = response.json()
-            if "choices" in response_data and response_data["choices"]:
-                response_output = response_data["choices"][0].get("message", {}).get("content", "No response available.")
-                return response_output
-            else:
-                return "No response available."
-        else:
-            print(f"Error ({response.status_code}): {response.text}")
-            return f"Error ({response.status_code}): {response.text}"
-    else:
-        # The initial analysis cannot answer the question, call analyze_screenshot_with_gpt4 again
-        new_analysis = analyze_screenshot_with_gpt4(base64_image, prompt=question)
-        return handle_user_question_with_gpt3(question, new_analysis, base64_image)
-
-def can_answer_question(question, analysis):
-    """
-    Check if the analysis output can answer the user's question.
-
-    Args:
-        question (str): The user's question.
-        analysis (str): The analysis output.
-
-    Returns:
-        bool: True if the analysis can answer the question, False otherwise.
-    """
-    # Implement logic to check if the analysis output can answer the question
-    # For example, check if certain keywords are present in the analysis
-    keywords = question.lower().split()
-    for keyword in keywords:
-        if keyword in analysis.lower():
-            return True
-    return False
-
 if __name__ == "__main__":
-    analyze_screenshot_and_engage_user()
+    take_screenshot_and_analyze()
